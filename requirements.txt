@@ -1,0 +1,27 @@
+# Core
+requests>=2.31.0
+feedparser>=6.0.11
+python-dotenv>=1.0.1
+
+# Script generation (pick one provider; keys in .env)
+openai>=1.40.0
+google-genai>=0.7.0
+
+# Indian / multilingual TTS (free, no API key for Microsoft edge voices)
+edge-tts>=6.1.12
+
+# Video
+moviepy>=1.0.3,<2.0.0
+Pillow>=10.4.0
+numpy>=1.26.0
+
+# YouTube upload
+google-api-python-client>=2.140.0
+google-auth-oauthlib>=1.2.1
+google-auth-httplib2>=0.2.0
+
+# Testing
+pytest>=8.2.0
+
+# Optional: stock media (requires API keys where noted)
+# pexels-python  # if you add Pexels API

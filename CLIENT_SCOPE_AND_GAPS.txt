@@ -1,0 +1,59 @@
+================================================================================
+NEWS VIDEO AUTOMATION — CLIENT KO DENE LAYAK SCOPE (TRANSPARENT)
+================================================================================
+
+A) IS PROJECT MEIN AB KYA DELIVER HO SAKTA HAI (PRODUCTION-READY BASE)
+--------------------------------------------------------------------------------
+- World news headlines RSS se collect
+- OpenAI se long news script (Indian audience friendly English / tuning possible)
+- Indian voice (Edge TTS) — high quality, no extra TTS subscription
+- Har story ke liye UNIQUE visuals: OpenAI Images API se headline-based illustrations
+  (Pexels/Pixabay optional; BROLL_SOURCE=openai se stock band)
+- Story-wise folder mapping (01_, 02_ …) + staged temp pipeline
+- Final MP4 + auto YouTube thumbnail + SEO title/description/tags (LLM)
+- YouTube upload (OAuth) + background music from assets/news_music/ (random pick)
+- Tests + preflight checks
+
+Ye stack “paid news SaaS” nahi hai, lekin daily automated channel ke liye solid commercial base hai.
+
+
+B) “CLIENT KE FRIEND JAISA” JO BINA UNKE CODE KE GUARANTEE NAHI HOTI
+--------------------------------------------------------------------------------
+Friend ne jo describe kiya (exact words):
+- Har news ki real website images “read” karke photoreal duplicate generate
+- Har story ke liye AI video har baar
+- Anchor walk (right se center), left/right stage layout
+- Lip-sync + expressions “100%” match
+
+Ye features typically in mein se aate hain:
+1) Custom Colab + GPU + SadTalker/Wav2Lip + heavy tuning, YA
+2) Paid APIs (HeyGen / D-ID / Runway / Pika class tools), YA
+3) Manual motion design templates (After Effects style) — auto nahi
+
+Bina unka notebook/source dekh kar “pixel same” clone scientifically verify nahi ho sakta.
+
+
+C) PAYMENT / CONTRACT — RECOMMENDED SPLIT (CLIENT KO SAMJHANA EASY)
+--------------------------------------------------------------------------------
+PHASE 1 (abhi deliver): Automated daily video pipeline (script + voice + unique AI
+images per story + music + thumbnail + metadata + upload). Fixed price.
+
+PHASE 2 (optional add-on): Lip-sync anchor + stage motion + AI video clips.
+  - Either: client provides friend’s Colab notebook OR API budget (monthly cap)
+  - Fixed price OR monthly retainer
+
+
+D) CLIENT SE 1 CHEEZ MANGNI ZAROORI (QUALITY MATCH)
+--------------------------------------------------------------------------------
+Friend ka Google Colab notebook export (.ipynb) ya GitHub link.
+Uske bina hum “same” sirf guess par banate hain — client expectations mismatch ho sakta hai.
+
+
+E) TECHNICAL NOTE (RISK)
+--------------------------------------------------------------------------------
+News sites se images scrape karke reuse = copyright + YouTube risk.
+Isliye is repo me safe path: licensed / AI-generated / client-provided media.
+
+================================================================================
+Is file ko client ko as-is bhej sakte ho — transparency se trust badhta hai.
+================================================================================

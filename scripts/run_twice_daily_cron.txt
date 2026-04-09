@@ -1,0 +1,11 @@
+Cron (Linux/Mac) example (runs at 08:00 and 18:00 local time)
+
+1) Make sure venv exists and dependencies installed.
+2) Set working directory to project root.
+3) Add to crontab:
+
+0 8 * * * cd /ABS/PATH/video-proejct-1 && .venv/bin/python -m src.main --skip-upload >> logs/run.log 2>&1
+0 18 * * * cd /ABS/PATH/video-proejct-1 && .venv/bin/python -m src.main --skip-upload >> logs/run.log 2>&1
+
+For upload (public/unlisted), remove --skip-upload after OAuth is set up.
+

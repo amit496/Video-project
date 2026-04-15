@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+output/
+temp/
+logs/
+
+secrets/
+!secrets/.gitkeep
+
+.DS_Store
+Thumbs.db
+scripts/github_token.txt

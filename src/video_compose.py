@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 from pathlib import Path
 
 from moviepy.editor import (
@@ -28,12 +29,16 @@ logger = logging.getLogger(__name__)
 
 
 def _first_anchor_image(folder: Path) -> Path | None:
+    anchors: list[Path] = []
     for ext in ("*.png", "*.jpg", "*.jpeg", "*.webp"):
         for p in sorted(folder.glob(ext)):
             if p.name.startswith("."):
                 continue
-            return p
-    return None
+            anchors.append(p)
+    if not anchors:
+        return None
+    randomize = os.getenv("ANCHOR_RANDOMIZE", "1").strip().lower() in ("1", "true", "yes", "on")
+    return random.choice(anchors) if randomize else anchors[0]
 
 
 def _title_card(text: str, duration: float, size: tuple[int, int]):

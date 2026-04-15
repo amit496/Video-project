@@ -6,7 +6,7 @@ Pipeline scaffold for a **15-minute style** news video: collect headlines, gener
 
 - **No paid SaaS** is possible if you use **RSS**, **Edge TTS** (Microsoft’s free edge voices), **FFmpeg/MoviePy**, and **YouTube Data API** (free quota with OAuth).
 - **LLM scripting** still needs *some* model access: OpenAI pay-as-you-go, or **Google AI Studio (Gemini) free tier**, or a **local model** on a GPU machine — pick one and wire it in `script_generator.py`.
-- **“110% copyright-free”** is a marketing phrase. Safer approach: **Pexels / Pixabay / Wikimedia** with API + license metadata, or **AI-generated B-roll** (check your jurisdiction and platform policies).
+- **“110% copyright-free”** is a marketing phrase. Safer approach: **AI-generated B-roll** or properly licensed media you control (check your jurisdiction and platform policies).
 - **Talking anchor like TV**: true lip-sync from a **static photo** needs **Wav2Lip / SadTalker** (GPU, setup heavy) or **paid APIs**. This repo uses a **professional layout**: anchor image + lower-third style + voiceover, which matches many successful faceless/anchor-style channels.
 
 ## Quick start
@@ -23,7 +23,7 @@ See `assets/README_ASSETS.txt` for the daily folder workflow (Hindi notes for th
 
 ## What you should do next (progress checklist)
 
-1. Copy `.env.example` → `.env` and add **`OPENAI_API_KEY`** (script) and optionally **`PEXELS_API_KEY`** (auto stock images when `news_today/` is empty).
+1. Copy `.env.example` → `.env` and choose your script/media mode.
 2. Install **FFmpeg**, then `pip install -r requirements.txt`.
 3. Run **`python -m src.main --skip-upload`** until the MP4 + `thumbnail.jpg` in `temp/<timestamp>/` look good.
 4. Add **`secrets/client_secret.json`** (YouTube OAuth), then upload without `--skip-upload`.
@@ -35,7 +35,9 @@ See `assets/README_ASSETS.txt` for the daily folder workflow (Hindi notes for th
 - `src/script_generator.py` — LLM → ~15 min spoken script (target length configurable).
 - `src/tts_edge.py` — Indian English / Hindi voices via `edge-tts`.
 - `src/media_sources.py` — Lists daily images/videos from `assets/news_today/`.
-- `src/pexels_fetch.py` — Optional Pexels downloads when the daily folder is empty.
+- `src/article_media_fetch.py` — Pulls article-page preview images and turns them into short clips.
+- `src/local_ai_image_gen.py` — Generates fully local topic-driven images from each story without any API.
+- `src/story_media_gen.py` — Local fallback story visuals/clips from headline + summary when article media is unavailable.
 - `src/thumbnail_gen.py` — 1280×720 JPEG thumbnail (headline + anchor inset).
 - `src/video_compose.py` — Intro + B-roll slideshow + anchor corner (or full-screen anchor if no B-roll).
 - `src/youtube_upload.py` — Title, description, tags, thumbnail path.

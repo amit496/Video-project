@@ -6,8 +6,6 @@ import json
 import os
 from dataclasses import dataclass
 
-from openai import OpenAI
-
 from . import config
 
 
@@ -53,6 +51,8 @@ def _safe_parse_json(text: str) -> dict:
 def _generate_openai(script: str, titles: list[str]) -> dict:
     if not config.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY missing in .env")
+    from openai import OpenAI
+
     model = os.getenv("OPENAI_SEO_MODEL", os.getenv("OPENAI_SCRIPT_MODEL", "gpt-4o-mini"))
     client = OpenAI(api_key=config.OPENAI_API_KEY)
     topics = "\n".join([f"- {t}" for t in titles[:12]])

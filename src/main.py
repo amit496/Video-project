@@ -16,8 +16,11 @@ from .news_fetcher import collect_news, format_for_prompt
 from .script_generator import generate_script
 from .tts_edge import synthesize_to_file
 from .media_sources import group_news_media_by_story, list_news_media
+from .article_media_fetch import fetch_story_article_media
+from .local_ai_image_gen import generate_local_ai_story_images
 from .openai_story_images import generate_story_images
-from .pexels_fetch import download_broll_for_titles
+from .runway_media_gen import generate_story_media_with_runway
+from .story_media_gen import generate_story_media
 from .stage_daily_media import stage_extra_files, stage_folder
 from .thumbnail_gen import build_youtube_thumbnail
 from .seo_metadata import generate_seo_metadata
@@ -33,7 +36,6 @@ def run(
     dry_run: bool = False,
     skip_upload: bool = False,
     privacy: str = "private",
-    no_pexels: bool = False,
     no_seo_llm: bool = False,
     preflight_only: bool = False,
 ) -> None:
@@ -76,7 +78,7 @@ def run(
     titles = [i.title for i in items]
     media_paths = list_news_media(config.NEWS_MEDIA_DIR)
 
-    # Stage media into temp so story mapping is consistent and Pexels can fill gaps.
+    # Stage media into temp so story mapping is consistent across generated sources.
     staged_dir = temp_dir / "staged_media"
     stage_folder(config.NEWS_MEDIA_DIR, staged_dir)
 
@@ -85,17 +87,127 @@ def run(
     missing = [i + 1 for i, bucket in enumerate(story_media) if not bucket]
 
     use_openai = config.BROLL_SOURCE == "openai"
-    use_pexels = (
-        config.BROLL_SOURCE == "pexels"
-        and config.PEXELS_API_KEY
-        and config.PEXELS_WHEN_EMPTY
-        and not no_pexels
-    )
+    use_localai = config.BROLL_SOURCE == "localai"
+    use_runway = config.BROLL_SOURCE == "runway"
+    use_article = config.BROLL_SOURCE == "article"
+    use_generated = config.BROLL_SOURCE == "generated"
 
-    if use_openai:
+    if use_localai:
         try:
             if not media_paths:
-                logger.info("B-roll: generating unique images per headline (OpenAI, no Pexels)…")
+                logger.info("B-roll: generating fully local topic-driven images…")
+                local_images = generate_local_ai_story_images(items[:story_n], temp_dir / "local_ai_broll")
+                stage_extra_files(local_images, staged_dir)
+            elif missing:
+                logger.info("B-roll: filling missing stories with local generated images %s…", missing)
+                miss_items = [items[i - 1] for i in missing if i - 1 < len(items)]
+                local_images = generate_local_ai_story_images(
+                    miss_items,
+                    temp_dir / "local_ai_broll_missing",
+                    story_indices_1based=missing,
+                )
+                stage_extra_files(local_images, staged_dir)
+        except Exception as e:
+            logger.warning("Local AI image generation failed (%s). Continue with local/article/generated media.", e)
+
+    elif use_runway:
+        try:
+            if not media_paths:
+                logger.info("B-roll: generating real AI images and clips with Runway…")
+                runway_media = generate_story_media_with_runway(
+                    items[:story_n],
+                    temp_dir / "runway_broll",
+                    api_key=config.RUNWAY_API_KEY,
+                    image_model=os.getenv("RUNWAY_IMAGE_MODEL", "gen4_image"),
+                    video_model=os.getenv("RUNWAY_VIDEO_MODEL", "gen4.5"),
+                    ratio=os.getenv("RUNWAY_RATIO", "1280:720"),
+                    duration=int(os.getenv("RUNWAY_DURATION_SEC", "5")),
+                )
+                if runway_media:
+                    stage_extra_files(runway_media, staged_dir)
+                else:
+                    logger.info("Runway returned no media. Falling back to article/generated visuals…")
+                    article_media = fetch_story_article_media(items[:story_n], temp_dir / "article_broll")
+                    if article_media:
+                        stage_extra_files(article_media, staged_dir)
+                    else:
+                        generated = generate_story_media(items[:story_n], temp_dir / "generated_broll")
+                        stage_extra_files(generated, staged_dir)
+            elif missing:
+                logger.info("B-roll: filling missing stories with Runway %s…", missing)
+                miss_items = [items[i - 1] for i in missing if i - 1 < len(items)]
+                runway_media = generate_story_media_with_runway(
+                    miss_items,
+                    temp_dir / "runway_broll_missing",
+                    api_key=config.RUNWAY_API_KEY,
+                    image_model=os.getenv("RUNWAY_IMAGE_MODEL", "gen4_image"),
+                    video_model=os.getenv("RUNWAY_VIDEO_MODEL", "gen4.5"),
+                    ratio=os.getenv("RUNWAY_RATIO", "1280:720"),
+                    duration=int(os.getenv("RUNWAY_DURATION_SEC", "5")),
+                    story_indices_1based=missing,
+                )
+                if runway_media:
+                    stage_extra_files(runway_media, staged_dir)
+        except Exception as e:
+            logger.warning("Runway story media failed (%s). Continue with article/generated/local media.", e)
+
+    elif use_article:
+        try:
+            if not media_paths:
+                logger.info("B-roll: fetching article images and clips from source pages…")
+                article_media = fetch_story_article_media(items[:story_n], temp_dir / "article_broll")
+                if article_media:
+                    stage_extra_files(article_media, staged_dir)
+                else:
+                    logger.info("No article media found. Falling back to generated story visuals…")
+                    generated = generate_story_media(items[:story_n], temp_dir / "generated_broll")
+                    stage_extra_files(generated, staged_dir)
+            elif missing:
+                logger.info("B-roll: filling missing stories from article pages %s…", missing)
+                miss_items = [items[i - 1] for i in missing if i - 1 < len(items)]
+                article_media = fetch_story_article_media(
+                    miss_items,
+                    temp_dir / "article_broll_missing",
+                    story_indices_1based=missing,
+                )
+                if article_media:
+                    stage_extra_files(article_media, staged_dir)
+                still_missing_media, _ = group_news_media_by_story(staged_dir, max_stories=story_n)
+                still_missing = [i + 1 for i, bucket in enumerate(still_missing_media) if not bucket]
+                if still_missing:
+                    logger.info("Article pages still missing visuals %s. Filling with generated story visuals…", still_missing)
+                    still_missing_items = [items[i - 1] for i in still_missing if i - 1 < len(items)]
+                    generated = generate_story_media(
+                        still_missing_items,
+                        temp_dir / "generated_broll_missing",
+                        story_indices_1based=still_missing,
+                    )
+                    stage_extra_files(generated, staged_dir)
+        except Exception as e:
+            logger.warning("Article story media failed (%s). Continue with generated/local media.", e)
+
+    elif use_generated:
+        try:
+            if not media_paths:
+                logger.info("B-roll: generating story-wise local visuals and short clips…")
+                generated = generate_story_media(items[:story_n], temp_dir / "generated_broll")
+                stage_extra_files(generated, staged_dir)
+            elif missing:
+                logger.info("B-roll: filling missing stories with generated visuals %s…", missing)
+                miss_items = [items[i - 1] for i in missing if i - 1 < len(items)]
+                generated = generate_story_media(
+                    miss_items,
+                    temp_dir / "generated_broll_missing",
+                    story_indices_1based=missing,
+                )
+                stage_extra_files(generated, staged_dir)
+        except Exception as e:
+            logger.warning("Generated story visuals failed (%s). Continue with local/empty media.", e)
+
+    elif use_openai:
+        try:
+            if not media_paths:
+                logger.info("B-roll: generating unique images per headline (OpenAI)…")
                 ai_paths = generate_story_images(titles, temp_dir / "ai_broll", max_stories=story_n)
                 stage_extra_files(ai_paths, staged_dir)
             elif missing:
@@ -111,27 +223,6 @@ def run(
         except Exception as e:
             logger.warning("OpenAI story images failed (%s). Continue with local/empty media.", e)
 
-    elif use_pexels:
-        if not media_paths:
-            logger.info("news_today/ empty — downloading B-roll from Pexels (headline-based)…")
-            downloaded = download_broll_for_titles(titles, temp_dir / "pexels", config.PEXELS_API_KEY)
-            stage_extra_files(downloaded, staged_dir)
-        elif missing:
-            logger.info("Some stories missing visuals (%s). Filling from Pexels…", missing)
-            downloaded = download_broll_for_titles(
-                [titles[i - 1] for i in missing if i - 1 < len(titles)],
-                temp_dir / "pexels_missing",
-                config.PEXELS_API_KEY,
-                max_images=len(missing),
-            )
-            renamed: list[Path] = []
-            for idx, src in zip(missing, downloaded):
-                ext = Path(src).suffix.lower() or ".jpg"
-                dest = (temp_dir / "pexels_missing") / f"{idx:02d}_pexels{ext}"
-                if Path(src) != dest:
-                    Path(src).replace(dest)
-                renamed.append(dest)
-            stage_extra_files(renamed, staged_dir)
 
     logger.info(
         "Anchor: %s | B-roll files: %d (folder %s)",
@@ -154,7 +245,7 @@ def run(
         music_path=bg_music,
     )
 
-    if not no_seo_llm and config.OPENAI_API_KEY and (os.getenv("SEO_METADATA_USE_LLM", "1").strip().lower() in ("1", "true", "yes", "on")):
+    if not no_seo_llm and config.seo_llm_enabled() and config.has_seo_provider_credentials():
         try:
             seo = generate_seo_metadata(script, titles)
             meta_title, description, tags = seo.title, seo.description, seo.tags
@@ -202,11 +293,6 @@ def main() -> None:
         help="YouTube visibility",
     )
     p.add_argument(
-        "--no-pexels",
-        action="store_true",
-        help="Do not call Pexels (only if BROLL_SOURCE=pexels)",
-    )
-    p.add_argument(
         "--no-seo-llm",
         action="store_true",
         help="Do not use LLM for title/description/tags (use template)",
@@ -216,7 +302,6 @@ def main() -> None:
         dry_run=args.dry_run,
         skip_upload=args.skip_upload,
         privacy=args.privacy,
-        no_pexels=args.no_pexels,
         no_seo_llm=args.no_seo_llm,
         preflight_only=args.preflight,
     )

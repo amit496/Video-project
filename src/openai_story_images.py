@@ -10,7 +10,6 @@ from pathlib import Path
 import base64
 
 import requests
-from openai import OpenAI
 
 from . import config
 
@@ -45,6 +44,8 @@ def generate_story_images(
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    from openai import OpenAI
+
     client = OpenAI(api_key=config.OPENAI_API_KEY)
     model = os.getenv("OPENAI_IMAGE_MODEL", "dall-e-3")
     size = os.getenv("OPENAI_IMAGE_SIZE", "1792x1024")

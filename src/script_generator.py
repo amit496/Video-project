@@ -1,11 +1,10 @@
-"""Generate a long-form spoken news script from headlines (OpenAI or Gemini)."""
+"""Generate a long-form spoken news script from OpenAI, Gemini, or a local template."""
 
 from __future__ import annotations
 
 import logging
 import os
-
-from openai import OpenAI
+import re
 
 from . import config
 
@@ -35,10 +34,92 @@ Rules:
 def estimate_words_for_duration(seconds: int, wpm: int = 130) -> int:
     return max(400, int(seconds / 60 * wpm))
 
+
+def _clean_summary(text: str, limit: int = 260) -> str:
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0].strip()
+    return (cut or text[:limit]).rstrip(" ,.;:") + "."
+
+
+def _generate_template(news_blob: str, target_duration_sec: int) -> str:
+    """Offline fallback: turn prompt-formatted news into a readable anchor script."""
+    lines = [ln.rstrip() for ln in news_blob.splitlines()]
+    stories: list[tuple[str, str]] = []
+    current_title = ""
+    current_summary = ""
+
+    for line in lines:
+        striped = line.strip()
+        if not striped:
+            continue
+        if re.match(r"^\d+\.\s+", striped):
+            if current_title:
+                stories.append((current_title, current_summary))
+            current_title = re.sub(r"^\d+\.\s+", "", striped).strip()
+            current_summary = ""
+            continue
+        if striped.lower().startswith("source:"):
+            continue
+        if not current_summary:
+            current_summary = striped
+
+    if current_title:
+        stories.append((current_title, current_summary))
+
+    if not stories:
+        raise RuntimeError("No stories found for template script generation")
+
+    intro = [
+        "Namaskar. Aaj ke is world news bulletin mein aapka swagat hai.",
+        "Is video mein hum aaj ki badi antarrashtriya khabron ko seedhe aur aasaan andaaz mein samjhenge.",
+        "Chaliye shuru karte hain aaj ki top stories ke saath.",
+    ]
+    outro = [
+        "Filhal ke liye itna hi.",
+        "Aaj ki badi duniya bhar ki khabron ka ye tha sankshipt lekin structured roundup.",
+        "Dekhne ke liye dhanyavaad. Agli bulletin mein phir mulaqat hogi.",
+    ]
+
+    words_target = estimate_words_for_duration(target_duration_sec)
+    story_target = max(80, int((words_target - 120) / max(len(stories), 1)))
+
+    body: list[str] = []
+    for idx, (title, summary) in enumerate(stories, 1):
+        clean_summary = _clean_summary(summary)
+        if idx == 1:
+            lead = f"Sabse pehli khabar {title} se judi hai."
+        else:
+            lead = f"Ab baat karte hain story number {idx} ki. Yeh khabar {title} se related hai."
+
+        explainer = (
+            f"Available reports ke mutabik, {clean_summary} "
+            "Is development ka asar regional aur global level par dekhne ko mil sakta hai, "
+            "isliye is story par nazar bani rahegi."
+        )
+
+        segment = f"{lead} {explainer}"
+        while len(segment.split()) < story_target:
+            segment += (
+                " Is khabar ka broader context ye hai ki policy, security, economy, "
+                "ya public sentiment par iska seedha ya aparoksh prabhav pad sakta hai."
+            )
+            if len(segment.split()) >= story_target:
+                break
+            segment += (
+                " Hum aage bhi is se judi official updates aur confirmed reports par nazar rakhenge."
+            )
+        body.append(segment)
+
+    return "\n\n".join(intro + body + outro)
+
 def _generate_openai(news_blob: str, target_duration_sec: int) -> str:
     words = estimate_words_for_duration(target_duration_sec)
     if not config.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY missing in .env")
+    from openai import OpenAI
 
     client = OpenAI(api_key=config.OPENAI_API_KEY)
     user_msg = (
@@ -86,6 +167,9 @@ def _generate_gemini(news_blob: str, target_duration_sec: int) -> str:
 def generate_script(news_blob: str, target_duration_sec: int | None = None) -> str:
     target = target_duration_sec or config.TARGET_DURATION_SEC
     provider = config.SCRIPT_PROVIDER
+    if provider in {"template", "local", "offline", "none"}:
+        logger.info("Script provider: template/local (no API).")
+        return _generate_template(news_blob, target)
     if provider == "gemini":
         return _generate_gemini(news_blob, target)
     return _generate_openai(news_blob, target)

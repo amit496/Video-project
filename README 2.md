@@ -1,3 +1,7 @@
+> NOTE: This file is kept for legacy/client notes.
+>
+> The main, updated instructions (cell-wise / Colab-style) are in `README.md`.
+
 # Automated World News → Indian Voice Video → YouTube
 
 Pipeline scaffold for a **15-minute style** news video: collect headlines, generate a simple script, Indian-accent TTS, combine with client anchor image + stock visuals, optional background music, upload metadata to YouTube.
